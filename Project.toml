@@ -1,0 +1,10 @@
+name = "LPtown"
+uuid = "251e852b-f1ce-422f-9358-a2bbcf4115c6"
+authors = ["Niclas Mattsson <niclas.mattsson@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
