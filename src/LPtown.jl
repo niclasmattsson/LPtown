@@ -1,6 +1,6 @@
 module LPtown
 
-using JuMP, Clp, PrettyTables, UnPack
+using JuMP, Clp, PrettyTables
 
 export makeparameters, makevariables, makeconstraints, makemodel, runmodel
 
@@ -60,7 +60,7 @@ function makeparameters()
 end
 
 function makevariables(model, params)
-    @unpack SLICE, PLANT, FUEL = params
+    (; SLICE, PLANT, FUEL) = params
 
     @variables model begin
         Systemcost                      # Mkr/year
@@ -76,10 +76,10 @@ function makevariables(model, params)
 end
 
 function makeconstraints(model, vars, params)
-    @unpack SLICE, PLANT, FUEL, heatpumpCOP, elecprice, heatdemand, hours,
+    (; SLICE, PLANT, FUEL, heatpumpCOP, elecprice, heatdemand, hours,
         startcapac, efficiency, powerheatratio, investcost, fuelprice, emissionsCO2,
-        lifetime, discountrate, wasteheatcontent, annualwaste, CRF = params
-    @unpack Systemcost, CO2emissions, FuelUse, Totalwaste, HeatProduction, Invest = vars
+        lifetime, discountrate, wasteheatcontent, annualwaste, CRF) = params
+    (; Systemcost, CO2emissions, FuelUse, Totalwaste, HeatProduction, Invest) = vars
 
     @constraints model begin
         # Heat output per plant limited by installed capacity, divide by 1000 to get GWh
@@ -148,7 +148,7 @@ function makemodel()
     vars = makevariables(model, params)
     constraints = makeconstraints(model, vars, params)
 
-    @unpack Systemcost = vars
+    (; Systemcost) = vars
 
     @objective model Min begin
         Systemcost
@@ -160,9 +160,9 @@ end
 function runmodel()
     LPtown, params, vars, constraints = makemodel()
 
-    @unpack PLANT = params
-    @unpack Systemcost, CO2emissions, FuelUse, Totalwaste, HeatProduction, Invest = vars
-    @unpack Demand, Capacity = constraints
+    (; PLANT) = params
+    (; Systemcost, CO2emissions, FuelUse, Totalwaste, HeatProduction, Invest) = vars
+    (; Demand, Capacity) = constraints
 
     # Some optional additional constraints:
     # [set_upper_bound(Invest[p], 0) for p in PLANT]  # no investments allowed
@@ -170,8 +170,8 @@ function runmodel()
 
     optimize!(LPtown)
 
-    printtable(value.(Invest), ["Invest", "[MW]"])
-    printtable(1000*dual.(Demand), ["Shadow price Demand", "[kr/MWh]"])
+    printtable(value.(Invest), "Invest", ["[MW]"])
+    printtable(1000*dual.(Demand), "Shadow price Demand", ["[kr/MWh]"])
     printtable(1000*dual.(Capacity), "Shadow price Capacity", "[kr/MWh]")
     printtable(value.(HeatProduction), "HeatProduction", "[GWh]")
     printtable(1000*reduced_cost.(HeatProduction), "Reduced cost HeatProduction", "[kr/MWh]")
@@ -190,10 +190,10 @@ readtable(table, headings) = Tuple(readrow(table, i, headings) for i = 1:size(ta
 
 # helper functions for printing output tables
 const JCArray = JuMP.Containers.DenseAxisArray
-printtable(x::JCArray{Float64,1}, header) =
-    pretty_table(x.data, header, row_names=x.axes[1])
+printtable(x::JCArray, tabletitle, header) =
+    pretty_table(x.data; header, row_labels=string.(x.axes[1]), row_label_column_title=tabletitle)
 printtable(x::JCArray{Float64,2}, varname, unit) =
-    pretty_table(x.data, permutedims([x.axes[2] fill(unit, length(x.axes[2]))]),
-        row_names=x.axes[1], row_name_column_title=varname)
+    pretty_table(x.data; header=permutedims([x.axes[2] fill(unit, length(x.axes[2]))]),
+        row_labels=x.axes[1], row_label_column_title=varname)
 
 end # module
