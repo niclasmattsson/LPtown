@@ -2,7 +2,7 @@ module LPtown
 
 using JuMP, Clp, PrettyTables
 
-export makeparameters, makevariables, makeconstraints, makemodel, runmodel
+export makeparameters, makevariables, makeconstraints, makemodel, runmodel, printtable
 
 function makeparameters()
     # index sets
@@ -189,11 +189,10 @@ readrow(table, rownum, headings) = Dict(h => table[rownum, i+1] for (i, h) in en
 readtable(table, headings) = Tuple(readrow(table, i, headings) for i = 1:size(table,1))
 
 # helper functions for printing output tables
-const JCArray = JuMP.Containers.DenseAxisArray
-printtable(x::JCArray, tabletitle, header) =
-    pretty_table(x.data; header, row_labels=string.(x.axes[1]), row_label_column_title=tabletitle)
-printtable(x::JCArray{Float64,2}, varname, unit) =
-    pretty_table(x.data; header=permutedims([x.axes[2] fill(unit, length(x.axes[2]))]),
-        row_labels=x.axes[1], row_label_column_title=varname)
+const DenseAxisArray = JuMP.Containers.DenseAxisArray
+printtable(x::DenseAxisArray, tabletitle, header) =
+    pretty_table(x.data; header, row_labels=x.axes[1], row_label_column_title=tabletitle)
+printtable(x::DenseAxisArray{Float64,2}, varname, unit) =
+    pretty_table(x.data; header=(x.axes[2], fill(unit, size(x,2))), row_labels=x.axes[1], row_label_column_title=varname)
 
 end # module
