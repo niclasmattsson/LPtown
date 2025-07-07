@@ -1,6 +1,6 @@
 module LPtown
 
-using JuMP, Clp, PrettyTables
+using JuMP, HiGHS, PrettyTables
 
 export makeparameters, makevariables, makeconstraints, makemodel, runmodel, printtable
 
@@ -140,7 +140,7 @@ function makeconstraints(model, vars, params)
 end
 
 function makemodel()
-    model = Model(Clp.Optimizer)
+    model = Model(HiGHS.Optimizer)
 
     params = makeparameters()
     vars = makevariables(model, params)
