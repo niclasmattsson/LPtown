@@ -5,12 +5,12 @@ using JuMP, Clp, PrettyTables
 export makeparameters, makevariables, makeconstraints, makemodel, runmodel, printtable
 
 function makeparameters()
-    # index sets
+    # index sets, just ordinary Julia vectors of symbols
     SLICE = [:winterday, :winternight, :summerday, :summernight, :otherday, :othernight]
     PLANT = [:woodHP, :wasteHP, :oilHP, :heatpump, :gasCHP, :woodCHP]
     FUEL  = [:wood, :waste, :oil, :gas, :elec]
 
-    # parameters(SLICE)
+    # parameters(SLICE), a Julia Matrix{Any} which is read into individual NamedTuples below
     sliceparameters = [
     #                 winter  winter  summer  summer  other   other
     #                   day   night     day   night     day   night
@@ -20,9 +20,8 @@ function makeparameters()
     :elecprice          600     450     350     250     450     350    # kr/MWh
     :heatdemand         900     900     150     150     450     550    # MW (average demand per slice)
     ]
-    days_per_slice, hours_per_day, heatpumpCOP, elecprice, heatdemand =
-        readtable(sliceparameters, SLICE)
-    hours = Dict(s => days_per_slice[s]*hours_per_day[s] for s in SLICE)
+    days_per_slice, hours_per_day, heatpumpCOP, elecprice, heatdemand = readtable(sliceparameters, SLICE)
+    hours = NamedTuple(s => days_per_slice[s]*hours_per_day[s] for s in SLICE)
 
     # parameters(PLANT)
     plantparameters = [
@@ -33,8 +32,7 @@ function makeparameters()
     :powerheatratio    0        0        0        0        1      0.3      # "alpha value" for a CHP = power out / heat out
     :investcost        0        0        0        0     6500     3600      # kr/kW heat
     ]
-    startcapac, efficiency, powerheatratio, investcost =
-        readtable(plantparameters, PLANT)
+    startcapac, efficiency, powerheatratio, investcost = readtable(plantparameters, PLANT)
 
     # parameters(FUEL)
     fuelparameters = [
@@ -52,33 +50,33 @@ function makeparameters()
     # capital recovery factor (for annualization of investment costs)
     CRF = discountrate / (1 - 1/(1+discountrate)^lifetime)
 
-    # new NamedTuple syntax in Julia 1.5: https://github.com/JuliaLang/julia/pull/34331
-    # (so functions that are passed parameter objects are type stable)
+    # Return a NamedTuple of all the sets and parameters
     return (; SLICE, PLANT, FUEL, heatpumpCOP, elecprice, heatdemand, hours,
         startcapac, efficiency, powerheatratio, investcost, fuelprice, emissionsCO2,
         lifetime, discountrate, wasteheatcontent, annualwaste, CRF)
 end
 
 function makevariables(model, params)
-    (; SLICE, PLANT, FUEL) = params
+    (; SLICE, PLANT, FUEL) = params     # unpack the sets we need
 
     @variables model begin
         Systemcost                      # Mkr/year
         CO2emissions                    # Mton CO2/year
-        FuelUse[f in FUEL, s in SLICE]  # GWh fuel/slice
+        FuelUse[FUEL, SLICE]            # GWh fuel/slice
         Totalwaste                      # tons of waste/year
-
-        HeatProduction[p in PLANT, s in SLICE] >= 0  # GWh heat/slice
-        Invest[p in PLANT] >= 0                      # MW heat
+        HeatProduction[PLANT, SLICE] >= 0   # GWh heat/slice
+        Invest[p in PLANT] >= 0             # MW heat
     end
 
+    # Return a NamedTuple of the JuMP variables
     return (; Systemcost, CO2emissions, FuelUse, Totalwaste, HeatProduction, Invest)
 end
 
 function makeconstraints(model, vars, params)
+    # Unpack the sets, parameters and variables defined above. 
     (; SLICE, PLANT, FUEL, heatpumpCOP, elecprice, heatdemand, hours,
         startcapac, efficiency, powerheatratio, investcost, fuelprice, emissionsCO2,
-        lifetime, discountrate, wasteheatcontent, annualwaste, CRF) = params
+        wasteheatcontent, annualwaste, CRF) = params
     (; Systemcost, CO2emissions, FuelUse, Totalwaste, HeatProduction, Invest) = vars
 
     @constraints model begin
@@ -136,19 +134,19 @@ function makeconstraints(model, vars, params)
             )
     end   #constraints
 
+    # Return a NamedTuple of the JuMP constraints
     return (; Capacity, Demand, NoInvest, Calculate_FuelUse, TotalCO2, Totalcosts,
         Wastelimit_annual, Wastelimit_winter, Wastelimit_summer, Wastelimit_other)
 end
 
 function makemodel()
     model = Model(Clp.Optimizer)
-    #model = Model(with_optimizer(GLPKSolverLP, print_level=0))
 
     params = makeparameters()
     vars = makevariables(model, params)
     constraints = makeconstraints(model, vars, params)
 
-    (; Systemcost) = vars
+    (; Systemcost) = vars       # unpack Systemcost from vars, equivalent to: Systemcost = vars.Systemcost
 
     @objective model Min begin
         Systemcost
@@ -160,8 +158,7 @@ end
 function runmodel()
     LPtown, params, vars, constraints = makemodel()
 
-    (; PLANT) = params
-    (; Systemcost, CO2emissions, FuelUse, Totalwaste, HeatProduction, Invest) = vars
+    (; CO2emissions, HeatProduction, Invest) = vars
     (; Demand, Capacity) = constraints
 
     # Some optional additional constraints:
@@ -184,8 +181,8 @@ function runmodel()
     return nothing
 end
 
-# helper functions for reading the data tables
-readrow(table, rownum, headings) = Dict(h => table[rownum, i+1] for (i, h) in enumerate(headings))
+# helper functions for reading the data tables into NamedTuples
+readrow(table, rownum, headings) = NamedTuple(h => table[rownum, i+1] for (i, h) in enumerate(headings))    # +1 to ignore the first table column
 readtable(table, headings) = Tuple(readrow(table, i, headings) for i = 1:size(table,1))
 
 # helper functions for printing output tables
