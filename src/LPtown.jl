@@ -167,8 +167,8 @@ function runmodel()
 
     optimize!(LPtown)
 
-    printtable(value.(Invest), "Invest", ["[MW]"])
-    printtable(1000*dual.(Demand), "Shadow price Demand", ["[kr/MWh]"])
+    printtable(value.(Invest), "Invest", "[MW]")
+    printtable(1000*dual.(Demand), "Shadow price Demand", "[kr/MWh]")
     printtable(1000*dual.(Capacity), "Shadow price Capacity", "[kr/MWh]")
     printtable(value.(HeatProduction), "HeatProduction", "[GWh]")
     printtable(1000*reduced_cost.(HeatProduction), "Reduced cost HeatProduction", "[kr/MWh]")
@@ -187,8 +187,8 @@ readtable(table, headings) = Tuple(readrow(table, i, headings) for i = 1:size(ta
 
 # helper functions for printing output tables
 const DenseAxisArray = JuMP.Containers.DenseAxisArray
-printtable(x::DenseAxisArray, tabletitle, header) =
-    pretty_table(x.data; header, row_labels=x.axes[1], row_label_column_title=tabletitle)
+printtable(x::DenseAxisArray, tabletitle, unit) =
+    pretty_table(x.data; header=[unit], row_labels=x.axes[1], row_label_column_title=tabletitle)
 printtable(x::DenseAxisArray{Float64,2}, varname, unit) =
     pretty_table(x.data; header=(x.axes[2], fill(unit, size(x,2))), row_labels=x.axes[1], row_label_column_title=varname)
 
