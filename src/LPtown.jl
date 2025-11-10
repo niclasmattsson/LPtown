@@ -188,8 +188,8 @@ readtable(table, headings) = Tuple(readrow(table, i, headings) for i = 1:size(ta
 # helper functions for printing output tables
 const DenseAxisArray = JuMP.Containers.DenseAxisArray
 printtable(x::DenseAxisArray, tabletitle, unit) =
-    pretty_table(x.data; header=[unit], row_labels=x.axes[1], row_label_column_title=tabletitle)
+    pretty_table(x.data; column_labels=[unit], row_labels=x.axes[1], stubhead_label=tabletitle)
 printtable(x::DenseAxisArray{Float64,2}, varname, unit) =
-    pretty_table(x.data; header=(x.axes[2], fill(unit, size(x,2))), row_labels=x.axes[1], row_label_column_title=varname)
+    pretty_table(x.data; column_labels=[x.axes[2], fill(unit, size(x,2))], row_labels=x.axes[1], stubhead_label=varname)
 
 end # module
